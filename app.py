@@ -3,6 +3,7 @@ import requests
 import time
 import hmac
 from crun_provider import create_music, check_music
+from gemini_chat import chat as gemini_chat
 
 # ----------------------------------------------------
 # 1. ตั้งค่าหน้าเว็บ (Page Config)
@@ -305,27 +306,17 @@ with left_col:
                 st.markdown(user_prompt)
 
             with st.chat_message("assistant"):
-                # อัปเดตค่าเข้ากล่องฝั่งขวาอัตโนมัติ
-                st.session_state.current_title = f"{user_prompt} - {clean_channel_name}"
-                if supermax_mode:
-                    st.session_state.current_style = "MAX FULL POWER, analog tape, roots reggae 95 BPM EXACT 4/4, EQ:B+5@60-3@220 | MIX:bass center | 2:1 comp -11 LUFS, UNIQUE RASPY MALE. ❌NO clean"
+                song = {name: st.session_state.get("current_" + name, "") for name in ("title", "style", "lyrics")}
+                song["image_prompt"] = st.session_state.get("current_img_prompt", "")
+                with st.spinner("Gemini กำลังตอบและเตรียมเพลง..."):
+                    result = gemini_chat(st.session_state.api_keys.get("gemini", ""), st.session_state.messages, clean_channel_name, song)
+                if result["success"]:
+                    for name in ("title", "style", "lyrics"):
+                        st.session_state["current_" + name] = result[name]
+                    st.session_state.current_img_prompt = result["image_prompt"]
+                    reply = result["reply"]
                 else:
-                    st.session_state.current_style = "Roots reggae 95 BPM, heavy bass, groovy drum, Thai male vocal"
-                
-                st.session_state.current_lyrics = f"""[Intro - Heavy Sub-Bass & Drum Roll, Skank Guitar enters]
-[Verse 1]
-เรื่องราวของ {user_prompt} ลอยมาตามลม
-จังหวะเร้กเก้คมๆ เปิดฟังในช่อง {clean_channel_name}
-[Chorus]
-โยกไปให้สุด ไม่ต้องหยุดฟังใคร
-เบสแน่นกระแทกใจ จัดไปยาวๆ
-[Guitar Solo - Dub Delay & Brass Section]
-[Outro - Fade Out]"""
-                st.session_state.current_img_prompt = f"3D stylized street art cover of '{user_prompt}', vibrant neon reggae aesthetic, text '{clean_channel_name}', 8k resolution --ar 16:9"
-
-                reply = f"""จัดโครงเพลง **"{user_prompt}"** สำหรับช่อง **{clean_channel_name}** ส่งไปที่แผงควบคุมฝั่งขวามือให้แล้วพี่อาร์ต!
-- ตรวจคำเสี่ยง YouTube: **ปลอดภัย 100%**
-- พี่สามารถแก้เนื้อเพลงฝั่งขวา หรือกดปุ่ม **🚀 ยิงสร้างเพลง** ได้เลย!"""
+                    reply = "⚠️ " + result["error"]
                 st.markdown(reply)
                 st.session_state.messages.append({"role": "assistant", "content": reply})
                 st.rerun()
