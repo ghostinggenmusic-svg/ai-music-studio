@@ -4,6 +4,7 @@ import time
 import hmac
 from crun_provider import create_music, check_music
 from gemini_chat import chat as gemini_chat
+from api_checks import render_checks
 
 # ----------------------------------------------------
 # 1. ตั้งค่าหน้าเว็บ (Page Config)
@@ -246,6 +247,8 @@ with st.sidebar:
 
     with st.expander("🎨 คีย์เจนภาพปก (Image API)", expanded=False):
         st.session_state.api_keys["image_api"] = st.text_input("Flux / Midjourney Key", value=st.session_state.api_keys["image_api"], type="password")
+
+    render_checks(st.session_state.api_keys)
 
     # สรุปจำนวนค่ายที่พร้อมรบ
     active_music_keys = [k for k in ["kie.ai", "Apiframe", "AI Music API", "Tunova", "Sunor", "MusicGPT", "crun.ai"] if st.session_state.api_keys[k].strip() != ""]
