@@ -6,7 +6,7 @@ from crun_provider import create_music, check_music
 from gemini_sompong import chat as gemini_chat
 from api_checks import render_checks
 from producer_rules import SECTIONS
-from auto_credits import render_auto_credits
+from all_credits import render_all_credits
 
 # ----------------------------------------------------
 # 1. ตั้งค่าหน้าเว็บ (Page Config)
@@ -250,7 +250,7 @@ with st.sidebar:
     with st.expander("🎨 คีย์เจนภาพปก (Image API)", expanded=False):
         st.session_state.api_keys["image_api"] = st.text_input("Flux / Midjourney Key", value=st.session_state.api_keys["image_api"], type="password")
 
-    render_auto_credits()
+    render_all_credits()
     render_checks(st.session_state.api_keys)
 
     # สรุปจำนวนค่ายที่พร้อมรบ
