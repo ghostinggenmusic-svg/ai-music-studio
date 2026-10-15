@@ -42,7 +42,9 @@ def check_music(key, task_id):
             urls = body.get('media_urls') or [track.get('suno_audio_url') for track in body.get('suno_data', [])]
             urls = [url for url in urls if isinstance(url, str) and url.startswith('https://')]
             if urls:
-                return dict(result, pending=False, audio_urls=urls)
+                tracks = [{field: track[field] for field in ('id', 'audio_id', 'duration', 'title') if field in track}
+                          for track in body.get('suno_data', []) if isinstance(track, dict)]
+                return dict(result, pending=False, audio_urls=urls, tracks=tracks)
             return dict(result, message='งานเสร็จแต่ยังไม่พบลิงก์เพลง ตรวจสถานะอีกครั้งหรือดูหน้า Logs ของ Crun')
         return dict(result, message='Crun กำลังสร้างเพลง รอ 15–30 วินาทีแล้วตรวจอีกครั้ง')
     except (requests.RequestException, ValueError):

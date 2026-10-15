@@ -454,7 +454,8 @@ with right_col:
                         st.write(l)
                 
                 if res["success"]:
-                    record_job(res.get("task_id") or str(uuid.uuid4()), edit_title, res.get("provider", selected_provider), "รอผล" if res.get("pending") else "สำเร็จ", [res["audio_url"]] if res.get("audio_url") else [])
+                    record_job(res.get("task_id") or str(uuid.uuid4()), edit_title, res.get("provider", selected_provider), "รอผล" if res.get("pending") else "สำเร็จ", [res["audio_url"]] if res.get("audio_url") else [],
+                               {"style": edit_style, "lyrics": edit_lyrics, "channel": clean_channel_name, "instrumental": instrumental_mode, "task_id": res.get("task_id")})
                     st.success(res["message"])
                     if res.get("audio_url"):
                         st.audio(res["audio_url"], format="audio/mp3")
@@ -510,7 +511,7 @@ if st.session_state.get("crun_task"):
     if task.get("pending"):
         st.info(task["message"])
     elif task.get("success"):
-        record_job(task["task_id"], st.session_state.get("current_title", "เพลงจาก Crun"), "crun.ai", "สำเร็จ", task.get("audio_urls", []))
+        record_job(task["task_id"], st.session_state.get("current_title", "เพลงจาก Crun"), "crun.ai", "สำเร็จ", task.get("audio_urls", []), {"task_id": task["task_id"], "tracks": task.get("tracks", [])})
         st.success("เพลงจาก crun.ai พร้อมฟังแล้ว")
         automatic = st.checkbox("ดาวน์โหลดอัตโนมัติเมื่อเพลงพร้อม", value=True, key="auto_download_music")
         for index, audio_url in enumerate(task.get("audio_urls", [])):

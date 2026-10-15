@@ -11,15 +11,20 @@ def connect():
     DB.parent.mkdir(exist_ok=True)
     db = sqlite3.connect(DB, timeout=10)
     db.execute("CREATE TABLE IF NOT EXISTS jobs (owner TEXT, job TEXT, updated TEXT, title TEXT, provider TEXT, status TEXT, urls TEXT, PRIMARY KEY(owner, job))")
+    if 'details' not in [row[1] for row in db.execute('PRAGMA table_info(jobs)')]:
+        db.execute("ALTER TABLE jobs ADD COLUMN details TEXT DEFAULT '{}'")
     return db
 
-def record(job, title, provider, status, urls=None):
+def record(job, title, provider, status, urls=None, details=None):
     owner = st.session_state.get("login_username")
     if not owner:
         return
     with connect() as db:
-        db.execute("INSERT INTO jobs VALUES (?,?,?,?,?,?,?) ON CONFLICT(owner,job) DO UPDATE SET updated=excluded.updated, status=excluded.status, urls=excluded.urls",
-                   (owner, job, datetime.now(timezone.utc).isoformat(), title, provider, status, json.dumps(urls or [])))
+        previous = db.execute('SELECT details FROM jobs WHERE owner=? AND job=?', (owner, job)).fetchone()
+        metadata = json.loads(previous[0]) if previous and previous[0] else {}
+        metadata.update(details or {})
+        db.execute("INSERT INTO jobs (owner,job,updated,title,provider,status,urls,details) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(owner,job) DO UPDATE SET updated=excluded.updated, status=excluded.status, urls=excluded.urls, details=excluded.details",
+                   (owner, job, datetime.now(timezone.utc).isoformat(), title, provider, status, json.dumps(urls or []), json.dumps(metadata, ensure_ascii=False)))
 
 def render():
     with st.expander("📚 ประวัติงานเพลง", expanded=False):
@@ -34,6 +39,9 @@ def render():
             for row in rows:
                 st.markdown("**" + row["title"] + "**")
                 st.write(row["provider"] + " · " + row["status"])
+                with st.expander("รายละเอียดงาน · " + row["job"]):
+                    st.write("อัปเดต: " + row["updated"])
+                    st.json(json.loads(row['details'] or '{}'))
                 for i, url in enumerate(json.loads(row["urls"])):
                     if isinstance(url, str) and url.startswith("https://"):
                         st.link_button("เปิดไฟล์เพลง " + str(i + 1), url)
