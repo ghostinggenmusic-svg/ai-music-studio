@@ -3,6 +3,7 @@ import requests
 import time
 import hmac
 from song_downloads import render_download
+from gpt_cover import generate as generate_cover
 from brand_theme import apply_brand_theme
 from crun_provider import create_music, check_music
 from gemini_studio import chat as gemini_chat
@@ -292,7 +293,7 @@ with st.sidebar:
         confirm_provider_key("crun.ai")
 
     with st.expander("🎨 คีย์เจนภาพปก (Image API)", expanded=False):
-        st.session_state.api_keys["image_api"] = st.text_input("Flux / Midjourney Key", value=st.session_state.api_keys["image_api"], type="password")
+        st.session_state.api_keys["image_api"] = st.text_input("OpenAI API Key (GPT สร้างภาพ)", value=st.session_state.api_keys["image_api"], type="password")
         confirm_provider_key("image_api")
 
     render_all_credits()
@@ -459,9 +460,16 @@ with right_col:
     with act_col2:
         if st.button("🎨 เจนภาพปก (Run Image API)", use_container_width=True):
             with st.spinner("กำลังสร้างภาพปก..."):
-                time.sleep(1)
-                st.success(f"สร้างภาพปกสำหรับ {clean_channel_name} สำเร็จ!")
-                st.image("https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80", caption=edit_title)
+                cover = generate_cover(st.session_state.api_keys.get("image_api", ""), edit_img_prompt)
+                if cover.get("image"):
+                    st.session_state.generated_cover = cover["image"]
+                    st.success("สร้างภาพปกจาก GPT สำเร็จ")
+                else:
+                    st.error(cover["error"])
+        if st.session_state.get("generated_cover"):
+            st.image(st.session_state.generated_cover, caption=edit_title)
+            st.download_button("⬇️ ดาวน์โหลดภาพปก PNG", st.session_state.generated_cover,
+                               file_name="Ghosting-Music-cover.png", mime="image/png")
 
 # Crun tasks are asynchronous. Checking status never submits a new paid task.
 if st.session_state.get("crun_task"):
