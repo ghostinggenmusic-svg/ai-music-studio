@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import time
 import hmac
+from song_downloads import render_download
 from brand_theme import apply_brand_theme
 from crun_provider import create_music, check_music
 from gemini_studio import chat as gemini_chat
@@ -475,9 +476,11 @@ if st.session_state.get("crun_task"):
         st.info(task["message"])
     elif task.get("success"):
         st.success("เพลงจาก crun.ai พร้อมฟังแล้ว")
-        for audio_url in task.get("audio_urls", []):
+        automatic = st.checkbox("ดาวน์โหลดอัตโนมัติเมื่อเพลงพร้อม", value=True, key="auto_download_music")
+        for index, audio_url in enumerate(task.get("audio_urls", [])):
             st.audio(audio_url)
             st.link_button("เปิดไฟล์เพลง", audio_url)
+            render_download(audio_url, index, automatic)
     else:
         st.error(task.get("error", "ตรวจสถานะไม่สำเร็จ"))
 
