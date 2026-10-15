@@ -3,6 +3,8 @@ import requests
 import time
 import hmac
 import uuid
+import sqlite3
+from key_vault import load as load_keys, save as save_key
 from job_history import record as record_job, render as render_history
 from song_downloads import render_download
 from gpt_cover import generate as generate_cover
@@ -78,6 +80,14 @@ def login():
 if not st.session_state.authenticated:
     login()
     st.stop()
+
+if not st.session_state.get('vault_loaded'):
+    owner = st.session_state.get('login_username', str(st.secrets['auth']['username']))
+    try:
+        st.session_state.api_keys.update(load_keys(owner))
+        st.session_state.vault_loaded = True
+    except (OSError, ValueError, sqlite3.Error):
+        st.warning('โหลดคีย์ที่บันทึกไว้ไม่ได้ คีย์ปัจจุบันยังใช้ได้ในเซสชันนี้')
 
 # ----------------------------------------------------
 # 3. สมองกลหลังบ้าน: ตัวแปลงภาษา (Adapters) & Auto-Fallback
@@ -239,6 +249,11 @@ def confirm_provider_key(provider):
         if not key_value:
             st.session_state["key_receipt_"+provider]={"ok":False,"message":"ยังไม่ได้ใส่คีย์"}
         else:
+            try:
+                save_key(st.session_state.get('login_username', str(st.secrets['auth']['username'])), provider, key_value)
+                st.caption('บันทึกคีย์แบบเข้ารหัสสำหรับบัญชีนี้แล้ว')
+            except (OSError, ValueError, sqlite3.Error):
+                st.warning('บันทึกคีย์ไม่สำเร็จ ยังใช้ได้เฉพาะเซสชันนี้')
             with st.spinner("กำลังตรวจ "+NAMES[provider]+"..."):
                 st.session_state["key_receipt_"+provider]=provider_balance(provider,key_value)
     result=st.session_state.get("key_receipt_"+provider)
@@ -326,7 +341,7 @@ if st.session_state.get("show_api_settings", False):
         st.session_state.api_keys["image_api"] = st.text_input("OpenAI API Key (GPT สร้างภาพ)", value=st.session_state.api_keys["image_api"], type="password")
         confirm_provider_key("image_api")
 
-    st.caption("รับคีย์สำหรับเซสชันปัจจุบัน • ระบบจำคีย์ถาวรยังไม่เปิดใช้")
+    st.caption("กดยืนยันใต้คีย์เพื่อบันทึกแบบเข้ารหัสแยกตามบัญชี • โหลดกลับหลังรีเฟรชได้ • พื้นที่เซิร์ฟเวอร์อาจถูกล้างเมื่อคลาวด์รีสตาร์ตหรือสร้างระบบใหม่")
     if st.button("เสร็จแล้ว · กลับสตูดิโอ"):
         st.session_state.show_api_settings = False
         st.rerun()
