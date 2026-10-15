@@ -265,6 +265,15 @@ with st.sidebar:
     with st.expander("🎨 คีย์เจนภาพปก (Image API)", expanded=False):
         st.session_state.api_keys["image_api"] = st.text_input("Flux / Midjourney Key", value=st.session_state.api_keys["image_api"], type="password")
 
+    if st.button("✅ ยืนยันคีย์และเช็กเครดิต", use_container_width=True, type="primary"):
+        entered = [provider for provider, key_value in st.session_state.api_keys.items() if key_value.strip()]
+        if entered:
+            st.session_state.confirm_keys_check = True
+            st.session_state.show_key_receipt = True
+        else:
+            st.warning("ยังไม่มีคีย์ กรุณาวางคีย์ในช่องของค่ายที่ต้องการก่อนกดปุ่ม")
+    st.caption("มือถือ: วางคีย์แล้วกดปุ่มยืนยันได้ ไม่ต้องกด Enter • คีย์ยังเก็บเฉพาะเซสชัน รีโหลดหน้าอาจหาย")
+
     render_all_credits()
     render_checks(st.session_state.api_keys)
 

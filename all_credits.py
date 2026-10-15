@@ -82,11 +82,25 @@ def render_all_credits():
     keys=st.session_state.get('api_keys',{})
     st.markdown('### 💳 เครดิตทุก API ที่ใส่ไว้')
     force=st.button('🔄 รีเฟรชเครดิตทุกค่าย',key='refresh_all_balances')
+    confirmed=st.session_state.pop('confirm_keys_check',False)
+    force=force or confirmed
     task=st.session_state.get('crun_task') or {}
     marker=(task.get('task_id'),task.get('pending'),task.get('success'))
     cache=collect_balances(keys,st.session_state.get('provider_balances',{}),marker,force)
     st.session_state.provider_balances=cache
-    if not cache: st.caption('ใส่ API Key แล้วกด Enter เพื่อแสดงรายการอัตโนมัติ')
+    if st.session_state.get('show_key_receipt') and cache:
+        receipt=[]
+        for provider,entry in cache.items():
+            result=entry['result']
+            label=NAMES[provider]
+            if result.get('ok') and 'balance' in result:
+                receipt.append('✅ '+label+' — รับคีย์แล้ว • เครดิตคงเหลือ '+result['balance']+' '+result.get('unit','เครดิต'))
+            elif result.get('ok'):
+                receipt.append('✅ '+label+' — รับคีย์แล้ว • '+result['message'])
+            else:
+                receipt.append(('⚠️ ' if result.get('ok') is False else 'ℹ️ ')+label+' — รับค่าคีย์แล้ว • '+result['message'])
+        st.info('**ผลยืนยันคีย์และเครดิต**\n\n'+'\n\n'.join(receipt))
+    if not cache: st.caption('ใส่ API Key แล้วกดปุ่มยืนยันคีย์และเช็กเครดิต')
     for provider in NAMES:
         if provider not in cache: continue
         entry=cache[provider]; result=entry['result']
