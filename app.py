@@ -7,6 +7,7 @@ from gemini_sompong import chat as gemini_chat
 from api_checks import render_checks
 from producer_rules import SECTIONS
 from all_credits import render_all_credits
+from studio_accounts import authenticate, allowed_channels
 
 # ----------------------------------------------------
 # 1. ตั้งค่าหน้าเว็บ (Page Config)
@@ -52,8 +53,13 @@ def login():
         username = st.text_input("ชื่อผู้ใช้ (Username)", value="admin")
         password = st.text_input("รหัสผ่าน (Password)", type="password")
         if st.button("🚀 เข้าสู่ระบบ", use_container_width=True):
-            if hmac.compare_digest(username.encode(), expected_user.encode()) and hmac.compare_digest(password.encode(), expected_password.encode()):
+            identity = authenticate(username.strip(), password, st.secrets)
+            if identity:
+                for saved_key in list(st.session_state):
+                    del st.session_state[saved_key]
                 st.session_state.authenticated = True
+                st.session_state.login_username = identity["username"]
+                st.session_state.login_role = identity["role"]
                 st.rerun()
             else:
                 st.error("❌ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง")
@@ -220,12 +226,14 @@ with st.sidebar:
     st.title("⚙️ คลังแสงพี่อาร์ต")
     
     st.markdown("### 📺 เลือกช่องเป้าหมาย (4 ช่อง)")
-    channel_list = [
-        "1. GHOSTING MUSIC (หลัก)",
-        "2. The Ghost Music Studio (รอง)",
-        "3. @watermusic1987",
-        "4. AOMSO MUSIC"
-    ]
+    admin_username = str(st.secrets["auth"]["username"])
+    # Existing pre-upgrade sessions were authenticated as the sole admin account.
+    login_username = st.session_state.get("login_username", admin_username)
+    channel_list = allowed_channels(login_username, admin_username)
+    if not channel_list:
+        st.error("บัญชีนี้ไม่มีสิทธิ์เข้าช่อง")
+        st.stop()
+    st.caption("บัญชี: " + login_username + (" • ผู้ดูแลทุกช่อง" if login_username == admin_username else " • ผู้ใช้ทั่วไป"))
     selected_channel = st.selectbox("เลือกช่องที่จะทำเพลงลง:", options=channel_list, index=0)
     
     # แยกชื่อช่องสะอาดๆ เอาไว้ต่อท้ายชื่อเพลง
@@ -258,7 +266,8 @@ with st.sidebar:
     st.success(f"⚡ มีคีย์พร้อมสลับใช้งาน: **{len(active_music_keys)} / 7 ค่าย**")
 
     if st.button("🚪 ออกจากระบบ", use_container_width=True):
-        st.session_state.authenticated = False
+        for saved_key in list(st.session_state):
+            del st.session_state[saved_key]
         st.rerun()
 
 # ----------------------------------------------------
