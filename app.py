@@ -3,7 +3,7 @@ import requests
 import time
 import hmac
 from crun_provider import create_music, check_music
-from gemini_chat import chat as gemini_chat
+from gemini_sompong import chat as gemini_chat
 from api_checks import render_checks
 from producer_rules import SECTIONS
 
@@ -408,3 +408,4 @@ if st.session_state.get("crun_task"):
             st.link_button("เปิดไฟล์เพลง", audio_url)
     else:
         st.error(task.get("error", "ตรวจสถานะไม่สำเร็จ"))
+
