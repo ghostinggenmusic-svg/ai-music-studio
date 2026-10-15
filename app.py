@@ -20,7 +20,7 @@ from wav_output import SUPPORTED as WAV_PROVIDERS, NOTES as WAV_NOTES, submit as
 # 1. ตั้งค่าหน้าเว็บ (Page Config)
 # ----------------------------------------------------
 st.set_page_config(
-    page_title="AI Music Studio - พี่อาร์ต",
+    page_title="GHOSTING MUSIC STUDIO",
     page_icon="🎧",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -295,7 +295,7 @@ with st.sidebar:
 # ----------------------------------------------------
 # 5. พื้นที่ทำงานหลัก (Main Studio: แยกแท็บ แชทแต่งเพลง & แผงยิง API)
 # ----------------------------------------------------
-st.title(f"🎙️ AI Music Automation Studio — [{clean_channel_name}]")
+st.title(f"🎙️ GHOSTING MUSIC STUDIO — {clean_channel_name}")
 
 if st.button("🔑 ตั้งค่า API Keys — กดที่นี่เพื่อใส่คีย์", type="primary", use_container_width=True):
     st.session_state.show_api_settings = not st.session_state.get("show_api_settings", False)
@@ -373,49 +373,52 @@ def apply_song_draft(draft, channel):
 
 # --- ฝั่งซ้าย: ห้องแชทคุยกับโปรดิวเซอร์สมพงษ์ / แหม่ม ---
 with left_col:
-    st.subheader("💬 โปรดิวเซอร์สมพงษ์ — Serious Work Mode")
-    st.caption("คุยบรีฟก่อน • สั่งแต่งเพื่อดูร่าง • กดยืนยันส่งลงช่อง • กดสร้างเสียงแยก")
+    with st.container(border=True, key="chat_panel"):
+        st.subheader("💬 แชทแต่งเพลง · โปรดิวเซอร์สมพงษ์")
+        st.caption("คุยบรีฟก่อน • สั่งแต่งเพื่อดูร่าง • กดยืนยันส่งลงช่อง • กดสร้างเสียงแยก")
     
-    if "messages" not in st.session_state:
-        st.session_state.messages = [
-            {"role": "assistant", "content": "คุยบรีฟ ขอไอเดีย หรือเลือกคีย์เวิร์ดได้ครับ เมื่อพร้อมให้สั่งแต่งเพลง ผมจะแสดงร่างให้ตรวจ แล้วพี่กดยืนยันส่งลงช่องแก้ไขเองครับ"}
-        ]
+        if "messages" not in st.session_state:
+            st.session_state.messages = [
+                {"role": "assistant", "content": "คุยบรีฟ ขอไอเดีย หรือเลือกคีย์เวิร์ดได้ครับ เมื่อพร้อมให้สั่งแต่งเพลง ผมจะแสดงร่างให้ตรวจ แล้วพี่กดยืนยันส่งลงช่องแก้ไขเองครับ"}
+            ]
 
-    chat_container = st.container(height=420)
-    with chat_container:
-        for message_index, msg in enumerate(st.session_state.messages):
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
-                if msg.get('draft'):
-                    same_channel = msg.get('channel') == clean_channel_name
-                    st.button('✅ ยืนยัน ส่งร่างลง Title / Style / Lyrics',
-                              key=f'apply_draft_{message_index}', disabled=not same_channel,
-                              on_click=apply_song_draft, args=(msg['draft'], msg['channel']))
-                    if not same_channel:
-                        st.caption('เลือกช่อง ' + msg['channel'] + ' เพื่อใช้ร่างนี้')
-
-    if user_prompt := st.chat_input("พิมพ์ไอเดียเพลง เช่น 'คนขี้โม้ จังหวะเร้กเก้กวนๆ'..."):
-        st.session_state.messages.append({"role": "user", "content": user_prompt})
+        chat_container = st.container(height=420)
         with chat_container:
-            with st.chat_message("user"):
-                st.markdown(user_prompt)
+            for message_index, msg in enumerate(st.session_state.messages):
+                with st.chat_message(msg["role"]):
+                    st.markdown(msg["content"])
+                    if msg.get('draft'):
+                        same_channel = msg.get('channel') == clean_channel_name
+                        st.button('✅ ยืนยัน ส่งร่างลง Title / Style / Lyrics',
+                                  key=f'apply_draft_{message_index}', disabled=not same_channel,
+                                  on_click=apply_song_draft, args=(msg['draft'], msg['channel']))
+                        if not same_channel:
+                            st.caption('เลือกช่อง ' + msg['channel'] + ' เพื่อใช้ร่างนี้')
 
-            with st.chat_message("assistant"):
-                song = {name: st.session_state.get("current_" + name, "") for name in ("title", "style", "description", "lyrics", "tags", "ai_prompts")}
-                song["image_prompt"] = st.session_state.get("current_img_prompt", "")
-                with st.spinner("Gemini กำลังตอบ..."):
-                    result = gemini_chat(st.session_state.api_keys.get("gemini", ""), st.session_state.messages, clean_channel_name, song)
-                if result["success"]:
-                    reply = result["reply"]
-                else:
-                    reply = "⚠️ " + result["error"]
-                st.markdown(reply)
-                answer = {"role": "assistant", "content": reply}
-                if result.get('success') and result.get('turn_type') == 'draft':
-                    answer['draft'] = {name: result[name] for name in ('title', 'style', 'description', 'lyrics', 'tags', 'ai_prompts', 'image_prompt')}
-                    answer['channel'] = clean_channel_name
-                st.session_state.messages.append(answer)
-                st.rerun()
+        if user_prompt := st.chat_input("พิมพ์ไอเดียเพลง เช่น 'คนขี้โม้ จังหวะเร้กเก้กวนๆ'..."):
+            st.session_state.messages.append({"role": "user", "content": user_prompt})
+            with chat_container:
+                with st.chat_message("user"):
+                    st.markdown(user_prompt)
+
+                with st.chat_message("assistant"):
+                    song = {name: st.session_state.get("current_" + name, "") for name in ("title", "style", "description", "lyrics", "tags", "ai_prompts")}
+                    song["image_prompt"] = st.session_state.get("current_img_prompt", "")
+                    with st.spinner("Gemini กำลังตอบ..."):
+                        result = gemini_chat(st.session_state.api_keys.get("gemini", ""), st.session_state.messages, clean_channel_name, song)
+                    if result["success"]:
+                        reply = result["reply"]
+                    else:
+                        reply = "⚠️ " + result["error"]
+                    st.markdown(reply)
+                    answer = {"role": "assistant", "content": reply}
+                    if result.get('success') and result.get('turn_type') == 'draft':
+                        answer['draft'] = {name: result[name] for name in ('title', 'style', 'description', 'lyrics', 'tags', 'ai_prompts', 'image_prompt')}
+                        answer['channel'] = clean_channel_name
+                    st.session_state.messages.append(answer)
+                    st.rerun()
+
+        st.caption("สิ้นสุดพื้นที่แชท • แผง Title / Style / Lyrics อยู่ถัดไปด้านล่างบนมือถือ")
 
 # --- ฝั่งขวา: แผงควบคุม Rule of 6 & ปุ่มยิง API สลับค่าย ---
 with right_col:
