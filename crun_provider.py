@@ -34,7 +34,9 @@ def check_music(key, task_id):
         task = data.get('data') or {}
         status = task.get('status')
         if status == 'failed':
-            return dict(result, success=False, pending=False, error='Crun รายงานว่าสร้างเพลงล้มเหลว ตรวจรายละเอียดที่หน้า Logs ของ Crun')
+            detail = task.get('result') or {}
+            message = str(detail.get('message') or detail.get('msg') or 'ไม่ระบุสาเหตุ').replace(key, '[REDACTED]') if key else 'ไม่ระบุสาเหตุ'
+            return dict(result, success=False, pending=False, error=f"Crun สร้างเพลงล้มเหลว (code {detail.get('code', detail.get('cdoe', '?'))}): {message[:500]}")
         if status == 'success':
             body = task.get('result') or {}
             urls = body.get('media_urls') or [track.get('suno_audio_url') for track in body.get('suno_data', [])]
