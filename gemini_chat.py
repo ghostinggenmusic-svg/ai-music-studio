@@ -2,7 +2,7 @@
 import json
 import requests
 
-MODEL = 'gemini-2.5-flash-lite'
+MODEL = 'gemini-3.5-flash-lite'
 FIELDS = ('reply', 'title', 'style', 'lyrics', 'image_prompt')
 
 def chat(key, messages, channel, song):
@@ -37,3 +37,4 @@ def chat(key, messages, channel, song):
         return {'success':False,'error':'Gemini ตอบช้าเกิน 60 วินาที กรุณาลองส่งข้อความใหม่'}
     except (requests.RequestException, ValueError, KeyError, IndexError):
         return {'success':False,'error':'ยังไม่ได้คำตอบที่สมบูรณ์จาก Gemini กรุณาลองใหม่'}
+
