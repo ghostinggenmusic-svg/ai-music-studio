@@ -2,8 +2,9 @@ import streamlit as st
 import requests
 import time
 import hmac
+from brand_theme import apply_brand_theme
 from crun_provider import create_music, check_music
-from gemini_sompong import chat as gemini_chat
+from gemini_studio import chat as gemini_chat
 from api_checks import render_checks
 from producer_rules import SECTIONS
 from all_credits import render_all_credits
@@ -23,6 +24,8 @@ st.set_page_config(
 # ----------------------------------------------------
 # 2. ระบบล็อกอิน (Login & Session State)
 # ----------------------------------------------------
+apply_brand_theme()
+
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
@@ -312,21 +315,34 @@ st.divider()
 # แบ่งหน้าจอเป็น 2 ฝั่ง: ซ้าย = แชทคุยแต่งเพลง / ขวา = แผงควบคุมเพลง & ยิง API
 left_col, right_col = st.columns([1.2, 1])
 
+def apply_song_draft(draft, channel):
+    for name in ('title', 'style', 'lyrics', 'description', 'tags', 'ai_prompts'):
+        st.session_state['current_' + name] = draft[name]
+    st.session_state.current_img_prompt = draft['image_prompt']
+    st.session_state.draft_applied_notice = 'นำร่างลงช่องแก้ไขแล้ว ตรวจหรือแก้ไขก่อนกดสร้างเพลง'
+
 # --- ฝั่งซ้าย: ห้องแชทคุยกับโปรดิวเซอร์สมพงษ์ / แหม่ม ---
 with left_col:
     st.subheader("💬 โปรดิวเซอร์สมพงษ์ — Serious Work Mode")
-    st.caption("Rule of 6 • Supermax • โครงเพลงเป้าหมายอย่างน้อย 3:30 นาที")
+    st.caption("คุยบรีฟก่อน • สั่งแต่งเพื่อดูร่าง • กดยืนยันส่งลงช่อง • กดสร้างเสียงแยก")
     
     if "messages" not in st.session_state:
         st.session_state.messages = [
-            {"role": "assistant", "content": f"สวัสดีค่ะพี่อาร์ต! ตอนนี้ล็อกเป้าอยู่ที่ช่อง **{clean_channel_name}** แล้วค่ะ พิมพ์ชื่อเพลงหรือแนวเรื่องที่อยากได้มาเลย เดี๋ยวจัดโครงสร้างครบเซ็ตแล้วส่งเข้าแผงยิงเพลงฝั่งขวามือให้ทันที!"}
+            {"role": "assistant", "content": "คุยบรีฟ ขอไอเดีย หรือเลือกคีย์เวิร์ดได้ครับ เมื่อพร้อมให้สั่งแต่งเพลง ผมจะแสดงร่างให้ตรวจ แล้วพี่กดยืนยันส่งลงช่องแก้ไขเองครับ"}
         ]
 
     chat_container = st.container(height=420)
     with chat_container:
-        for msg in st.session_state.messages:
+        for message_index, msg in enumerate(st.session_state.messages):
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
+                if msg.get('draft'):
+                    same_channel = msg.get('channel') == clean_channel_name
+                    st.button('✅ ยืนยัน ส่งร่างลง Title / Style / Lyrics',
+                              key=f'apply_draft_{message_index}', disabled=not same_channel,
+                              on_click=apply_song_draft, args=(msg['draft'], msg['channel']))
+                    if not same_channel:
+                        st.caption('เลือกช่อง ' + msg['channel'] + ' เพื่อใช้ร่างนี้')
 
     if user_prompt := st.chat_input("พิมพ์ไอเดียเพลง เช่น 'คนขี้โม้ จังหวะเร้กเก้กวนๆ'..."):
         st.session_state.messages.append({"role": "user", "content": user_prompt})
@@ -337,23 +353,26 @@ with left_col:
             with st.chat_message("assistant"):
                 song = {name: st.session_state.get("current_" + name, "") for name in ("title", "style", "description", "lyrics", "tags", "ai_prompts")}
                 song["image_prompt"] = st.session_state.get("current_img_prompt", "")
-                with st.spinner("Gemini กำลังตอบและเตรียมเพลง..."):
+                with st.spinner("Gemini กำลังตอบ..."):
                     result = gemini_chat(st.session_state.api_keys.get("gemini", ""), st.session_state.messages, clean_channel_name, song)
                 if result["success"]:
-                    for name in ("title", "style", "description", "lyrics", "tags", "ai_prompts"):
-                        st.session_state["current_" + name] = result[name]
-                    st.session_state.current_img_prompt = result["image_prompt"]
                     reply = result["reply"]
                 else:
                     reply = "⚠️ " + result["error"]
                 st.markdown(reply)
-                st.session_state.messages.append({"role": "assistant", "content": reply})
+                answer = {"role": "assistant", "content": reply}
+                if result.get('success') and result.get('turn_type') == 'draft':
+                    answer['draft'] = {name: result[name] for name in ('title', 'style', 'description', 'lyrics', 'tags', 'ai_prompts', 'image_prompt')}
+                    answer['channel'] = clean_channel_name
+                st.session_state.messages.append(answer)
                 st.rerun()
 
 # --- ฝั่งขวา: แผงควบคุม Rule of 6 & ปุ่มยิง API สลับค่าย ---
 with right_col:
     st.subheader("🎛️ แผงควบคุมก่อนยิง API (แก้ไขได้สดๆ)")
     
+    if st.session_state.get('draft_applied_notice'):
+        st.success(st.session_state.pop('draft_applied_notice'))
     # ค่าเริ่มต้นในฟอร์ม
     if "current_title" not in st.session_state:
         st.session_state.current_title = f"เพลงใหม่ - {clean_channel_name}"
@@ -364,10 +383,10 @@ with right_col:
     if "current_img_prompt" not in st.session_state:
         st.session_state.current_img_prompt = "3D Pixar street art style reggae character with headphones, neon studio, 8k --ar 16:9"
 
-    edit_title = st.text_input("📦 Title (ชื่อเพลง + ชื่อช่อง):", value=st.session_state.current_title)
-    edit_style = st.text_area("🎛️ Style (พารามิเตอร์ซาวด์):", value=st.session_state.current_style, height=80)
-    edit_lyrics = st.text_area("📝 Lyrics (เนื้อเพลง):", value=st.session_state.current_lyrics, height=160)
-    edit_img_prompt = st.text_area("🖼️ Image Prompt (คำสั่งเจนปก):", value=st.session_state.current_img_prompt, height=68)
+    edit_title = st.text_input("📦 Title (ชื่อเพลง + ชื่อช่อง):", key="current_title")
+    edit_style = st.text_area("🎛️ Style (พารามิเตอร์ซาวด์):", key="current_style", height=80)
+    edit_lyrics = st.text_area("📝 Lyrics (เนื้อเพลง):", key="current_lyrics", height=160)
+    edit_img_prompt = st.text_area("🖼️ Image Prompt (คำสั่งเจนปก):", key="current_img_prompt", height=68)
 
     if st.session_state.get("current_description"):
         st.text_area("Description", key="current_description", height=100)
