@@ -2,8 +2,11 @@ import streamlit as st
 import requests
 import time
 import hmac
+import uuid
+from job_history import record as record_job, render as render_history
 from song_downloads import render_download
 from gpt_cover import generate as generate_cover
+from motion_prompt import generate as generate_motion
 from brand_theme import apply_brand_theme
 from crun_provider import create_music, check_music
 from gemini_studio import chat as gemini_chat
@@ -451,6 +454,7 @@ with right_col:
                         st.write(l)
                 
                 if res["success"]:
+                    record_job(res.get("task_id") or str(uuid.uuid4()), edit_title, res.get("provider", selected_provider), "รอผล" if res.get("pending") else "สำเร็จ", [res["audio_url"]] if res.get("audio_url") else [])
                     st.success(res["message"])
                     if res.get("audio_url"):
                         st.audio(res["audio_url"], format="audio/mp3")
@@ -463,13 +467,36 @@ with right_col:
                 cover = generate_cover(st.session_state.api_keys.get("image_api", ""), edit_img_prompt)
                 if cover.get("image"):
                     st.session_state.generated_cover = cover["image"]
+                    st.session_state.pop("cover_motion_prompt", None)
                     st.success("สร้างภาพปกจาก GPT สำเร็จ")
+                    motion = generate_motion(st.session_state.api_keys.get("image_api", ""), cover["image"], edit_img_prompt)
+                    if motion.get("text"):
+                        st.session_state.cover_motion_prompt = motion["text"]
+                    else:
+                        st.warning(motion["error"])
                 else:
                     st.error(cover["error"])
         if st.session_state.get("generated_cover"):
             st.image(st.session_state.generated_cover, caption=edit_title)
             st.download_button("⬇️ ดาวน์โหลดภาพปก PNG", st.session_state.generated_cover,
                                file_name="Ghosting-Music-cover.png", mime="image/png")
+            st.markdown("#### 🎬 วิดีโอจากภาพ · Google Flow")
+            if not st.session_state.get("cover_motion_prompt"):
+                if st.button("สร้าง Motion Prompt จากภาพนี้"):
+                    with st.spinner("GPT กำลังเขียน Motion Prompt..."):
+                        motion = generate_motion(st.session_state.api_keys.get("image_api", ""), st.session_state.generated_cover, edit_img_prompt)
+                    if motion.get("text"):
+                        st.session_state.cover_motion_prompt = motion["text"]
+                        st.rerun()
+                    else:
+                        st.error(motion["error"])
+            if st.session_state.get("cover_motion_prompt"):
+                st.text_area("Motion Prompt · 8 วินาที", key="cover_motion_prompt", height=160)
+                st.code(st.session_state.cover_motion_prompt, language=None)
+                st.download_button("ดาวน์โหลด Motion Prompt", st.session_state.cover_motion_prompt,
+                                   file_name="Ghosting-Music-motion.txt", mime="text/plain")
+            st.link_button("เปิด Google Flow → สร้างวิดีโอ", "https://labs.google/fx/tools/flow")
+            st.caption("ใช้บัญชีที่ล็อกอิน Flow ไว้ได้เลย • ใน Flow อัปโหลดภาพด้านบนแล้ววาง Motion Prompt • ปุ่มนี้ยังไม่ส่งภาพหรือสร้างวิดีโออัตโนมัติ • ใช้เครดิตตามบัญชี Flow")
 
 # Crun tasks are asynchronous. Checking status never submits a new paid task.
 if st.session_state.get("crun_task"):
@@ -483,6 +510,7 @@ if st.session_state.get("crun_task"):
     if task.get("pending"):
         st.info(task["message"])
     elif task.get("success"):
+        record_job(task["task_id"], st.session_state.get("current_title", "เพลงจาก Crun"), "crun.ai", "สำเร็จ", task.get("audio_urls", []))
         st.success("เพลงจาก crun.ai พร้อมฟังแล้ว")
         automatic = st.checkbox("ดาวน์โหลดอัตโนมัติเมื่อเพลงพร้อม", value=True, key="auto_download_music")
         for index, audio_url in enumerate(task.get("audio_urls", [])):
@@ -495,3 +523,4 @@ if st.session_state.get("crun_task"):
 
 
 render_wav_jobs(st.session_state.api_keys)
+render_history()
