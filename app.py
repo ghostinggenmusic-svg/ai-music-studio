@@ -8,6 +8,7 @@ from api_checks import render_checks
 from producer_rules import SECTIONS
 from all_credits import render_all_credits
 from studio_accounts_v2 import authenticate, allowed_channels
+from wav_output import SUPPORTED as WAV_PROVIDERS, NOTES as WAV_NOTES, submit as submit_wav_music, render_jobs as render_wav_jobs
 
 # ----------------------------------------------------
 # 1. ตั้งค่าหน้าเว็บ (Page Config)
@@ -78,6 +79,9 @@ def call_music_provider(provider_name, api_key, title, style, lyrics, instrument
     """
     if not api_key or api_key.strip() == "":
         return {"success": False, "error": f"ไม่ได้ใส่ API Key ของค่าย {provider_name} ไว้"}
+
+    if provider_name in WAV_PROVIDERS and api_key.strip() not in ("test_ok", "test_empty"):
+        return submit_wav_music(provider_name, api_key.strip(), title, style, lyrics, instrumental, st.session_state.get("prefer_wav_output", True))
 
     if provider_name == "crun.ai" and api_key.strip() not in ("test_ok", "test_empty"):
         pending = st.session_state.get("crun_task")
@@ -294,6 +298,15 @@ with top_col2:
 with top_col3:
     supermax_mode = st.checkbox("🔥 เปิดโหมดเสียง Supermax", value=True)
 
+st.checkbox("🎧 ใช้ WAV เป็นค่าเริ่มต้นเมื่อค่ายรองรับ", value=True, key="prefer_wav_output")
+if selected_provider in WAV_NOTES:
+    st.info(WAV_NOTES[selected_provider])
+else:
+    st.caption("WAV อัตโนมัติ: MusicGPT, kie.ai, AI Music API • ค่าขอ WAV ของ AI Music API เพิ่ม 2 เครดิตต่อเพลง • kie.ai อาจมีค่าใช้จ่ายเพิ่ม")
+with st.expander("📋 รูปแบบเสียงที่ตรวจสอบของแต่ละค่าย"):
+    for provider, note in WAV_NOTES.items():
+        st.write(provider + ": " + note)
+
 st.divider()
 
 # แบ่งหน้าจอเป็น 2 ฝั่ง: ซ้าย = แชทคุยแต่งเพลง / ขวา = แผงควบคุมเพลง & ยิง API
@@ -420,3 +433,6 @@ if st.session_state.get("crun_task"):
     else:
         st.error(task.get("error", "ตรวจสถานะไม่สำเร็จ"))
 
+
+
+render_wav_jobs(st.session_state.api_keys)
