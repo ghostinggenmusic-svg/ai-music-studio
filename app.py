@@ -7,7 +7,7 @@ from gemini_sompong import chat as gemini_chat
 from api_checks import render_checks
 from producer_rules import SECTIONS
 from all_credits import render_all_credits
-from studio_accounts import authenticate, allowed_channels
+from studio_accounts_v2 import authenticate, allowed_channels
 
 # ----------------------------------------------------
 # 1. ตั้งค่าหน้าเว็บ (Page Config)
