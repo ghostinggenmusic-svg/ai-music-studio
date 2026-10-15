@@ -59,7 +59,9 @@ def login():
     st.subheader("🔐 ล็อกอินเข้าหลังบ้านสตูดิโอพี่อาร์ต")
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        username = st.text_input("ชื่อผู้ใช้ (Username)", value="admin")
+        account_options = {"GHOSTING MUSIC": expected_user, "WATERMUSIC": "watermusic", "AOMSO MUSIC": "aomsomusic"}
+        account_label = st.selectbox("เลือกบัญชีเข้าใช้งาน", list(account_options))
+        username = account_options[account_label]
         password = st.text_input("รหัสผ่าน (Password)", type="password")
         if st.button("🚀 เข้าสู่ระบบ", use_container_width=True):
             identity = authenticate(username.strip(), password, st.secrets)
@@ -265,7 +267,8 @@ with st.sidebar:
     if not channel_list:
         st.error("บัญชีนี้ไม่มีสิทธิ์เข้าช่อง")
         st.stop()
-    st.caption("บัญชี: " + login_username + (" • ผู้ดูแลทุกช่อง" if login_username == admin_username else " • ผู้ใช้ทั่วไป"))
+    account_name = "GHOSTING MUSIC" if login_username == admin_username else login_username.upper()
+    st.caption("บัญชี: " + account_name + (" • ผู้ดูแลทุกช่อง" if login_username == admin_username else " • ผู้ใช้ทั่วไป"))
     selected_channel = st.selectbox("เลือกช่องที่จะทำเพลงลง:", options=channel_list, index=0)
     
     # แยกชื่อช่องสะอาดๆ เอาไว้ต่อท้ายชื่อเพลง
