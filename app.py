@@ -7,7 +7,7 @@ from crun_provider import create_music, check_music
 from gemini_studio import chat as gemini_chat
 from api_checks import render_checks
 from producer_rules import SECTIONS
-from all_credits import render_all_credits
+from all_credits import render_all_credits, provider_balance, NAMES
 from studio_accounts_v2 import authenticate, allowed_channels
 from wav_output import SUPPORTED as WAV_PROVIDERS, NOTES as WAV_NOTES, submit as submit_wav_music, render_jobs as render_wav_jobs
 
@@ -226,6 +226,26 @@ def execute_music_router(selected_mode, title, style, lyrics, instrumental):
 
     return {"success": False, "error": "ตายเรียบ! ไม่มีค่ายไหนยิงผ่านเลยพี่อาร์ต เช็กคีย์หรือเติมเครดิตด่วน!"}, logs
 
+def confirm_provider_key(provider):
+    if st.button("✅ ยืนยันคีย์และเช็กเครดิต", key="confirm_provider_"+provider, use_container_width=True):
+        key_value=st.session_state.api_keys.get(provider, "").strip()
+        if not key_value:
+            st.session_state["key_receipt_"+provider]={"ok":False,"message":"ยังไม่ได้ใส่คีย์"}
+        else:
+            with st.spinner("กำลังตรวจ "+NAMES[provider]+"..."):
+                st.session_state["key_receipt_"+provider]=provider_balance(provider,key_value)
+    result=st.session_state.get("key_receipt_"+provider)
+    if result:
+        label=NAMES[provider]
+        if result.get("ok") and "balance" in result:
+            st.success(label+" — รับคีย์แล้ว • เครดิตคงเหลือ "+result["balance"]+" "+result.get("unit","เครดิต"))
+        elif result.get("ok"):
+            st.success(label+" — รับคีย์แล้ว • "+result["message"])
+        elif result.get("ok") is False:
+            st.warning(label+" — "+result["message"])
+        else:
+            st.info(label+" — รับค่าคีย์แล้ว • "+result["message"])
+
 # ----------------------------------------------------
 # 4. แถบเมนูซ้ายมือ (Sidebar: เลือก 4 ช่อง & เก็บ API Keys)
 # ----------------------------------------------------
@@ -252,27 +272,27 @@ with st.sidebar:
     st.caption("💡 ทริคทดสอบระบบ: พิมพ์ `test_empty` เพื่อจำลองว่าค่ายนั้นเครดิตหมด และพิมพ์ `test_ok` เพื่อจำลองว่าค่ายนั้นยิงผ่าน!")
     
     st.session_state.api_keys["gemini"] = st.text_input("🧠 Gemini API Key (แต่งเพลง)", value=st.session_state.api_keys["gemini"], type="password")
+    confirm_provider_key("gemini")
     
     with st.expander("🎵 คีย์ 7 ค่ายเพลง (Music Providers)", expanded=True):
         st.session_state.api_keys["kie.ai"] = st.text_input("1. kie.ai Key", value=st.session_state.api_keys["kie.ai"], type="password")
+        confirm_provider_key("kie.ai")
         st.session_state.api_keys["Apiframe"] = st.text_input("2. Apiframe Key", value=st.session_state.api_keys["Apiframe"], type="password")
+        confirm_provider_key("Apiframe")
         st.session_state.api_keys["AI Music API"] = st.text_input("3. AI Music API Key", value=st.session_state.api_keys["AI Music API"], type="password")
+        confirm_provider_key("AI Music API")
         st.session_state.api_keys["Tunova"] = st.text_input("4. Tunova Key", value=st.session_state.api_keys["Tunova"], type="password")
+        confirm_provider_key("Tunova")
         st.session_state.api_keys["Sunor"] = st.text_input("5. Sunor Key", value=st.session_state.api_keys["Sunor"], type="password")
+        confirm_provider_key("Sunor")
         st.session_state.api_keys["MusicGPT"] = st.text_input("6. MusicGPT Key", value=st.session_state.api_keys["MusicGPT"], type="password")
+        confirm_provider_key("MusicGPT")
         st.session_state.api_keys["crun.ai"] = st.text_input("7. crun.ai Key", value=st.session_state.api_keys.get("crun.ai", ""), type="password")
+        confirm_provider_key("crun.ai")
 
     with st.expander("🎨 คีย์เจนภาพปก (Image API)", expanded=False):
         st.session_state.api_keys["image_api"] = st.text_input("Flux / Midjourney Key", value=st.session_state.api_keys["image_api"], type="password")
-
-    if st.button("✅ ยืนยันคีย์และเช็กเครดิต", use_container_width=True, type="primary"):
-        entered = [provider for provider, key_value in st.session_state.api_keys.items() if key_value.strip()]
-        if entered:
-            st.session_state.confirm_keys_check = True
-            st.session_state.show_key_receipt = True
-        else:
-            st.warning("ยังไม่มีคีย์ กรุณาวางคีย์ในช่องของค่ายที่ต้องการก่อนกดปุ่ม")
-    st.caption("มือถือ: วางคีย์แล้วกดปุ่มยืนยันได้ ไม่ต้องกด Enter • คีย์ยังเก็บเฉพาะเซสชัน รีโหลดหน้าอาจหาย")
+        confirm_provider_key("image_api")
 
     render_all_credits()
     render_checks(st.session_state.api_keys)
