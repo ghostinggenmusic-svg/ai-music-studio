@@ -1,20 +1,16 @@
 """Gemini REST chat with structured song fields. No keys are persisted."""
 import json
 import requests
+from producer_rules import RULES, normalize, format_package
 
 MODEL = 'gemini-3.5-flash-lite'
-FIELDS = ('reply', 'title', 'style', 'lyrics', 'image_prompt')
+FIELDS = ('reply', 'title', 'style', 'description', 'lyrics', 'tags', 'ai_prompts', 'image_prompt')
 
 def chat(key, messages, channel, song):
     if not key.strip():
         return {'success': False, 'error': 'กรุณาใส่ Gemini API Key ในแถบซ้ายแล้วกด Enter'}
     schema = {'type': 'OBJECT', 'properties': {field: {'type': 'STRING'} for field in FIELDS}, 'required': list(FIELDS)}
-    instruction = ('คุณเป็นผู้ช่วยแต่งเพลงภาษาไทย คุยตามคำขอและประวัติสนทนา แต่งเนื้อใหม่ไม่คัดลอกเพลงเดิม '
-                   'ตอบ reply เป็นภาษาไทย ช่อง title/style/lyrics/image_prompt เป็นเพลงฉบับล่าสุด '
-                   'หากแค่ถามทั่วไปให้คงข้อมูลเพลงเดิม ไม่รับประกันการผ่านนโยบาย YouTube '
-                   'style และ image_prompt ใช้ภาษาอังกฤษ เนื้อเพลงใช้ภาษาไทยเว้นแต่ผู้ใช้ระบุภาษาอื่น '
-                   'อย่าอ้างว่าได้สร้างเสียงเพลงแล้ว การแชทนี้สร้างข้อความเท่านั้น '
-                   f'ช่องเป้าหมาย: {channel}\nเพลงปัจจุบัน: {json.dumps(song, ensure_ascii=False)}')
+    instruction = RULES + f'\nช่องเป้าหมาย: {channel}\nเพลงปัจจุบัน: {json.dumps(song, ensure_ascii=False)}'
     contents = [{'role': 'user' if msg['role']=='user' else 'model', 'parts':[{'text':msg['content']}]} for msg in messages[-16:]]
     while contents and contents[0]['role'] != 'user':
         contents.pop(0)
@@ -32,6 +28,8 @@ def chat(key, messages, channel, song):
         result = json.loads(text)
         if not all(isinstance(result.get(field),str) for field in FIELDS):
             raise ValueError('Invalid song schema')
+        result = normalize(result, channel)
+        result['reply'] = format_package(result)
         return {'success':True, **result}
     except requests.Timeout:
         return {'success':False,'error':'Gemini ตอบช้าเกิน 60 วินาที กรุณาลองส่งข้อความใหม่'}

@@ -5,6 +5,7 @@ import hmac
 from crun_provider import create_music, check_music
 from gemini_chat import chat as gemini_chat
 from api_checks import render_checks
+from producer_rules import SECTIONS
 
 # ----------------------------------------------------
 # 1. ตั้งค่าหน้าเว็บ (Page Config)
@@ -289,7 +290,8 @@ left_col, right_col = st.columns([1.2, 1])
 
 # --- ฝั่งซ้าย: ห้องแชทคุยกับโปรดิวเซอร์สมพงษ์ / แหม่ม ---
 with left_col:
-    st.subheader("💬 แชทบรีฟงานเพลง & สร้างภาพปก")
+    st.subheader("💬 โปรดิวเซอร์สมพงษ์ — Serious Work Mode")
+    st.caption("Rule of 6 • Supermax • โครงเพลงเป้าหมายอย่างน้อย 3:30 นาที")
     
     if "messages" not in st.session_state:
         st.session_state.messages = [
@@ -309,12 +311,12 @@ with left_col:
                 st.markdown(user_prompt)
 
             with st.chat_message("assistant"):
-                song = {name: st.session_state.get("current_" + name, "") for name in ("title", "style", "lyrics")}
+                song = {name: st.session_state.get("current_" + name, "") for name in ("title", "style", "description", "lyrics", "tags", "ai_prompts")}
                 song["image_prompt"] = st.session_state.get("current_img_prompt", "")
                 with st.spinner("Gemini กำลังตอบและเตรียมเพลง..."):
                     result = gemini_chat(st.session_state.api_keys.get("gemini", ""), st.session_state.messages, clean_channel_name, song)
                 if result["success"]:
-                    for name in ("title", "style", "lyrics"):
+                    for name in ("title", "style", "description", "lyrics", "tags", "ai_prompts"):
                         st.session_state["current_" + name] = result[name]
                     st.session_state.current_img_prompt = result["image_prompt"]
                     reply = result["reply"]
@@ -342,6 +344,19 @@ with right_col:
     edit_style = st.text_area("🎛️ Style (พารามิเตอร์ซาวด์):", value=st.session_state.current_style, height=80)
     edit_lyrics = st.text_area("📝 Lyrics (เนื้อเพลง):", value=st.session_state.current_lyrics, height=160)
     edit_img_prompt = st.text_area("🖼️ Image Prompt (คำสั่งเจนปก):", value=st.session_state.current_img_prompt, height=68)
+
+    if st.session_state.get("current_description"):
+        st.text_area("Description", key="current_description", height=100)
+        st.text_area("Tags", key="current_tags", height=70)
+        st.text_area("AI Prompts", key="current_ai_prompts", height=130)
+        with st.expander("📦 ผลงานครบ 6 กล่อง — โปรดิวเซอร์สมพงษ์", expanded=True):
+            package = {"title": edit_title, "style": edit_style, "lyrics": edit_lyrics,
+                       "description": st.session_state.current_description,
+                       "tags": st.session_state.current_tags, "ai_prompts": st.session_state.current_ai_prompts}
+            for label, field in SECTIONS:
+                st.markdown("#### " + label)
+                st.code(package[field], language=label)
+        st.caption("ความยาวและมิกซ์เป็นเป้าหมายใน Prompt ต้องตรวจไฟล์เสียงจริงหลังสร้าง ไม่รับประกันผลการพิจารณาของ YouTube")
 
     act_col1, act_col2 = st.columns(2)
     
