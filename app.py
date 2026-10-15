@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import time
 import hmac
+from crun_provider import create_music, check_music
 
 # ----------------------------------------------------
 # 1. ตั้งค่าหน้าเว็บ (Page Config)
@@ -29,6 +30,7 @@ if "api_keys" not in st.session_state:
         "Tunova": "",
         "Sunor": "",
         "MusicGPT": "",
+        "crun.ai": "",
         "image_api": ""
     }
 
@@ -67,6 +69,15 @@ def call_music_provider(provider_name, api_key, title, style, lyrics, instrument
     if not api_key or api_key.strip() == "":
         return {"success": False, "error": f"ไม่ได้ใส่ API Key ของค่าย {provider_name} ไว้"}
 
+    if provider_name == "crun.ai" and api_key.strip() not in ("test_ok", "test_empty"):
+        pending = st.session_state.get("crun_task")
+        if pending and pending.get("pending"):
+            return {"success": True, "pending": True, "provider": "crun.ai", "message": "มีงาน Crun ที่รอผลอยู่ กดตรวจสถานะด้านล่างก่อนสร้างงานใหม่", "task_id": pending["task_id"]}
+        result = create_music(api_key.strip(), title, style, lyrics, instrumental)
+        if result.get("pending"):
+            st.session_state.crun_task = result
+        return result
+
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
@@ -74,7 +85,9 @@ def call_music_provider(provider_name, api_key, title, style, lyrics, instrument
 
     # ตั้งค่า Endpoint และรูปแบบ JSON (Payload) แยกตามค่าย
     try:
-        if provider_name == "kie.ai":
+        if provider_name == "crun.ai":
+            url, payload = "", {}
+        elif provider_name == "kie.ai":
             url = "https://api.kie.ai/v1/music/generate"
             payload = {
                 "title": title,
@@ -167,7 +180,7 @@ def execute_music_router(selected_mode, title, style, lyrics, instrumental):
     - ถ้าเลือกค่ายเดี่ยว -> ยิงค่ายเดียวจบ
     - ถ้าเลือก Auto-Fallback -> ไล่เช็กทีละค่ายที่มีคีย์ ถ้าพัง/เครดิตหมด กระโดดหนีไปค่ายถัดไปทันที
     """
-    providers_order = ["kie.ai", "Apiframe", "AI Music API", "Tunova", "Sunor", "MusicGPT"]
+    providers_order = ["kie.ai", "Apiframe", "AI Music API", "Tunova", "Sunor", "MusicGPT", "crun.ai"]
     logs = []
 
     # กรณีเลือกเจาะจงค่ายเอง
@@ -221,20 +234,21 @@ with st.sidebar:
     
     st.session_state.api_keys["gemini"] = st.text_input("🧠 Gemini API Key (แต่งเพลง)", value=st.session_state.api_keys["gemini"], type="password")
     
-    with st.expander("🎵 คีย์ 6 ค่ายเพลง (Music Providers)", expanded=True):
+    with st.expander("🎵 คีย์ 7 ค่ายเพลง (Music Providers)", expanded=True):
         st.session_state.api_keys["kie.ai"] = st.text_input("1. kie.ai Key", value=st.session_state.api_keys["kie.ai"], type="password")
         st.session_state.api_keys["Apiframe"] = st.text_input("2. Apiframe Key", value=st.session_state.api_keys["Apiframe"], type="password")
         st.session_state.api_keys["AI Music API"] = st.text_input("3. AI Music API Key", value=st.session_state.api_keys["AI Music API"], type="password")
         st.session_state.api_keys["Tunova"] = st.text_input("4. Tunova Key", value=st.session_state.api_keys["Tunova"], type="password")
         st.session_state.api_keys["Sunor"] = st.text_input("5. Sunor Key", value=st.session_state.api_keys["Sunor"], type="password")
         st.session_state.api_keys["MusicGPT"] = st.text_input("6. MusicGPT Key", value=st.session_state.api_keys["MusicGPT"], type="password")
+        st.session_state.api_keys["crun.ai"] = st.text_input("7. crun.ai Key", value=st.session_state.api_keys.get("crun.ai", ""), type="password")
 
     with st.expander("🎨 คีย์เจนภาพปก (Image API)", expanded=False):
         st.session_state.api_keys["image_api"] = st.text_input("Flux / Midjourney Key", value=st.session_state.api_keys["image_api"], type="password")
 
     # สรุปจำนวนค่ายที่พร้อมรบ
-    active_music_keys = [k for k in ["kie.ai", "Apiframe", "AI Music API", "Tunova", "Sunor", "MusicGPT"] if st.session_state.api_keys[k].strip() != ""]
-    st.success(f"⚡ มีคีย์พร้อมสลับใช้งาน: **{len(active_music_keys)} / 6 ค่าย**")
+    active_music_keys = [k for k in ["kie.ai", "Apiframe", "AI Music API", "Tunova", "Sunor", "MusicGPT", "crun.ai"] if st.session_state.api_keys[k].strip() != ""]
+    st.success(f"⚡ มีคีย์พร้อมสลับใช้งาน: **{len(active_music_keys)} / 7 ค่าย**")
 
     if st.button("🚪 ออกจากระบบ", use_container_width=True):
         st.session_state.authenticated = False
@@ -255,7 +269,8 @@ with top_col1:
         "AI Music API",
         "Tunova",
         "Sunor",
-        "MusicGPT"
+        "MusicGPT",
+        "crun.ai"
     ]
     selected_provider = st.selectbox("🎯 โหมดยิงค่ายเพลง (Music Provider):", options=provider_options)
 with top_col2:
@@ -354,7 +369,8 @@ with right_col:
                 
                 if res["success"]:
                     st.success(res["message"])
-                    st.audio(res["audio_url"], format="audio/mp3")
+                    if res.get("audio_url"):
+                        st.audio(res["audio_url"], format="audio/mp3")
                 else:
                     st.error(res["error"])
 
@@ -364,3 +380,22 @@ with right_col:
                 time.sleep(1)
                 st.success(f"สร้างภาพปกสำหรับ {clean_channel_name} สำเร็จ!")
                 st.image("https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80", caption=edit_title)
+
+# Crun tasks are asynchronous. Checking status never submits a new paid task.
+if st.session_state.get("crun_task"):
+    task = st.session_state.crun_task
+    st.subheader("🎵 งานเพลง crun.ai")
+    st.code(task["task_id"], language=None)
+    st.caption("รอประมาณ 15–30 วินาทีแล้วตรวจสถานะ ไม่ต้องกดสร้างเพลงซ้ำ")
+    if st.button("🔄 ตรวจสถานะเพลง crun.ai"):
+        task = check_music(st.session_state.api_keys.get("crun.ai", ""), task["task_id"])
+        st.session_state.crun_task = task
+    if task.get("pending"):
+        st.info(task["message"])
+    elif task.get("success"):
+        st.success("เพลงจาก crun.ai พร้อมฟังแล้ว")
+        for audio_url in task.get("audio_urls", []):
+            st.audio(audio_url)
+            st.link_button("เปิดไฟล์เพลง", audio_url)
+    else:
+        st.error(task.get("error", "ตรวจสถานะไม่สำเร็จ"))
