@@ -29,7 +29,9 @@ def apply_brand_theme():
     [role="listbox"] {background:#15223a;color:#f4f7ff;}
     [role="option"] {color:#f4f7ff;}
     [data-testid="stChatInput"] {background:#101c33;border:1px solid #8396d466;border-radius:16px;}
-    [data-testid="stChatInput"] textarea {color:#f4f7ff;background:transparent;}
+    [data-testid="stChatInput"], [data-testid="stChatInput"] [data-baseweb="textarea"] {background:#101b30!important;}
+    [data-testid="stChatInput"] textarea {color:#7cf5b4!important;-webkit-text-fill-color:#7cf5b4!important;background:#101b30!important;caret-color:#7cf5b4!important;opacity:1!important;}
+    [data-testid="stChatInput"] textarea::placeholder {color:#a8b8d1!important;-webkit-text-fill-color:#a8b8d1!important;opacity:1!important;}
     [data-testid="stChatMessage"] {background:linear-gradient(135deg,#182842e8,#211b3be8);border:1px solid #738bd833;border-radius:18px;box-shadow:0 8px 32px #0002;}
     [data-testid="stCode"] pre {background:#0c1629!important;color:#e5efff!important;border:1px solid #586da64d;border-radius:12px;}
     [data-testid="stExpander"] {background:#121f35b8;border:1px solid #657db744;border-radius:15px;}

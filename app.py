@@ -273,6 +273,30 @@ with st.sidebar:
     st.info(f"🎯 ทาร์เก็ตปัจจุบัน:\n**{clean_channel_name}**")
     st.divider()
 
+    if st.button("🔑 ตั้งค่า API Keys", key="sidebar_open_keys", use_container_width=True):
+        st.session_state.show_api_settings = True
+    st.caption("กดปุ่มตั้งค่า API Keys กลางหน้าหลักเพื่อกรอกคีย์")
+
+    render_all_credits()
+    render_checks(st.session_state.api_keys)
+
+    # สรุปจำนวนค่ายที่พร้อมรบ
+    active_music_keys = [k for k in ["kie.ai", "Apiframe", "AI Music API", "Tunova", "Sunor", "MusicGPT", "crun.ai"] if st.session_state.api_keys[k].strip() != ""]
+    st.success(f"⚡ มีคีย์พร้อมสลับใช้งาน: **{len(active_music_keys)} / 7 ค่าย**")
+
+    if st.button("🚪 ออกจากระบบ", use_container_width=True):
+        for saved_key in list(st.session_state):
+            del st.session_state[saved_key]
+        st.rerun()
+
+# ----------------------------------------------------
+# 5. พื้นที่ทำงานหลัก (Main Studio: แยกแท็บ แชทแต่งเพลง & แผงยิง API)
+# ----------------------------------------------------
+st.title(f"🎙️ AI Music Automation Studio — [{clean_channel_name}]")
+
+if st.button("🔑 ตั้งค่า API Keys — กดที่นี่เพื่อใส่คีย์", type="primary", use_container_width=True):
+    st.session_state.show_api_settings = not st.session_state.get("show_api_settings", False)
+if st.session_state.get("show_api_settings", False):
     st.markdown("### 🔑 กรอก API Keys เก็บไว้")
     st.caption("💡 ทริคทดสอบระบบ: พิมพ์ `test_empty` เพื่อจำลองว่าค่ายนั้นเครดิตหมด และพิมพ์ `test_ok` เพื่อจำลองว่าค่ายนั้นยิงผ่าน!")
     
@@ -299,22 +323,11 @@ with st.sidebar:
         st.session_state.api_keys["image_api"] = st.text_input("OpenAI API Key (GPT สร้างภาพ)", value=st.session_state.api_keys["image_api"], type="password")
         confirm_provider_key("image_api")
 
-    render_all_credits()
-    render_checks(st.session_state.api_keys)
-
-    # สรุปจำนวนค่ายที่พร้อมรบ
-    active_music_keys = [k for k in ["kie.ai", "Apiframe", "AI Music API", "Tunova", "Sunor", "MusicGPT", "crun.ai"] if st.session_state.api_keys[k].strip() != ""]
-    st.success(f"⚡ มีคีย์พร้อมสลับใช้งาน: **{len(active_music_keys)} / 7 ค่าย**")
-
-    if st.button("🚪 ออกจากระบบ", use_container_width=True):
-        for saved_key in list(st.session_state):
-            del st.session_state[saved_key]
+    st.caption("รับคีย์สำหรับเซสชันปัจจุบัน • ระบบจำคีย์ถาวรยังไม่เปิดใช้")
+    if st.button("เสร็จแล้ว · กลับสตูดิโอ"):
+        st.session_state.show_api_settings = False
         st.rerun()
 
-# ----------------------------------------------------
-# 5. พื้นที่ทำงานหลัก (Main Studio: แยกแท็บ แชทแต่งเพลง & แผงยิง API)
-# ----------------------------------------------------
-st.title(f"🎙️ AI Music Automation Studio — [{clean_channel_name}]")
 
 # แถบควบคุมด้านบนสุด
 top_col1, top_col2, top_col3 = st.columns([2, 1, 1])
